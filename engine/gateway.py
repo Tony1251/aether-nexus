@@ -4,6 +4,7 @@ import os
 import hmac
 import hashlib
 import base64
+import time
 
 app = FastAPI(title="Aether-Nexus-Commercial-Gateway")
 
@@ -12,17 +13,21 @@ script_path = "/Users/yuhengluo/.openclaw/workspace/projects/Aether-Omni/engine/
 controller = AetherController(script_path)
 
 # 获取 Webhook 密钥
-WEBHOOK_SECRET = os.environ.get("SHOPIFY_WEBHOOK_SECRET")
+SHOPIFY_SECRET = os.environ.get("SHOPIFY_WEBHOOK_SECRET")
+AIRWALLEX_SECRET = os.environ.get("AIRWALLEX_WEBHOOK_SECRET")
 
 def verify_shopify_hmac(data: bytes, hmac_header: str) -> bool:
-    if not WEBHOOK_SECRET:
-        return True # 如果没设 Secret，默认放行 (生产环境不推荐)
-    
+    if not SHOPIFY_SECRET: return True
     computed_hmac = base64.b64encode(
-        hmac.new(WEBHOOK_SECRET.encode('utf-8'), data, hashlib.sha256).digest()
+        hmac.new(SHOPIFY_SECRET.encode('utf-8'), data, hashlib.sha256).digest()
     ).decode('utf-8')
-    
     return hmac.compare_digest(computed_hmac, hmac_header)
+
+def verify_airwallex_hmac(data: bytes, timestamp: str, signature: str) -> bool:
+    if not AIRWALLEX_SECRET: return True
+    payload = timestamp + data.decode('utf-8')
+    computed_hmac = hmac.new(AIRWALLEX_SECRET.encode('utf-8'), payload.encode('utf-8'), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(computed_hmac, signature)
 
 @app.get("/health")
 async def health():
@@ -30,20 +35,18 @@ async def health():
 
 @app.post("/webhook/shopify")
 async def handle_shopify_webhook(request: Request, x_shopify_hmac_sha256: str = Header(None)):
-    # 读取原始数据
     data = await request.body()
-    
-    # 校验签名
     if not verify_shopify_hmac(data, x_shopify_hmac_sha256):
         raise HTTPException(status_code=401, detail="Invalid Shopify Signature")
     
-    # 签名校验通过，处理请求
-    print(f"[*] 收到真实 Shopify Webhook")
+    controller.execute_with_healing()
+    return {"status": "success"}
+
+@app.post("/webhook/airwallex")
+async def handle_airwallex_webhook(request: Request, x_signature: str = Header(None), x_timestamp: str = Header(None)):
+    data = await request.body()
+    if not verify_airwallex_hmac(data, x_timestamp, x_signature):
+        raise HTTPException(status_code=401, detail="Invalid Airwallex Signature")
     
-    # 触发自动处理流程
-    success = controller.execute_with_healing()
-    
-    if success:
-        return {"status": "success", "message": "Pipeline triggered"}
-    else:
-        return {"status": "error", "message": "Pipeline failed"}
+    controller.execute_with_healing()
+    return {"status": "success"}
