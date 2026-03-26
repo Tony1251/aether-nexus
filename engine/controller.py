@@ -1,6 +1,7 @@
 import subprocess
 import time
 import os
+import sys
 
 class AetherController:
     def __init__(self, script_path):
@@ -12,9 +13,9 @@ class AetherController:
         while attempt < self.max_retries:
             print(f"[*] 启动智能体同步任务 (Attempt {attempt + 1})...")
             
-            # 使用 subprocess 运行 Pipeline 并捕获输出
+            # 使用 sys.executable 确保使用当前的容器 Python 解释器
             result = subprocess.run(
-                ["/Users/yuhengluo/.openclaw/workspace/projects/Aether-Omni/venv/bin/python3", self.script_path],
+                [sys.executable, self.script_path],
                 capture_output=True, text=True
             )
 
@@ -31,11 +32,13 @@ class AetherController:
         return False
 
     def _handle_error(self, stderr):
-        # 核心逻辑：将错误日志输出到指定位置供 Agent 读取和修复
-        with open("/Users/yuhengluo/.openclaw/workspace/projects/Aether-Omni/engine/error.log", "a") as f:
+        # 核心逻辑：使用相对路径记录错误
+        error_log_path = os.path.join(os.path.dirname(__file__), "error.log")
+        with open(error_log_path, "a") as f:
             f.write(stderr)
         print("[+] 错误日志已记录，准备触发自愈流程。")
 
 if __name__ == "__main__":
-    controller = AetherController("/Users/yuhengluo/.openclaw/workspace/projects/Aether-Omni/engine/pipeline.py")
+    # 使用相对于项目根目录的路径
+    controller = AetherController("production_pipeline.py")
     controller.execute_with_healing()
