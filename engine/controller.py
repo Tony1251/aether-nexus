@@ -32,7 +32,7 @@ class AetherController:
         return False
 
     def _handle_error(self, stderr):
-        # 核心逻辑：使用相对路径记录错误
+        print(f"[!!!] 捕获到流水线错误详情: {stderr}") # 新增：强制打印到控制台
         error_log_path = os.path.join(os.path.dirname(__file__), "error.log")
         with open(error_log_path, "a") as f:
             f.write(stderr)
