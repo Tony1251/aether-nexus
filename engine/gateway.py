@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException, Header
 from engine.controller import AetherController
+from social_engine.visual_engine import VisualEngine
 import os
 import hmac
 import hashlib
@@ -11,6 +12,7 @@ app = FastAPI(title="Aether-Nexus-Commercial-Gateway")
 # 初始化控制器
 script_path = "/Users/yuhengluo/.openclaw/workspace/projects/Aether-Omni/engine/pipeline.py"
 controller = AetherController(script_path)
+visual_engine = VisualEngine()
 
 # 获取 Webhook 密钥
 SHOPIFY_SECRET = os.environ.get("SHOPIFY_WEBHOOK_SECRET")
@@ -32,6 +34,11 @@ def verify_airwallex_hmac(data: bytes, timestamp: str, signature: str) -> bool:
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+@app.post("/api/social/generate-campaign")
+async def generate_campaign(product_title: str, product_desc: str):
+    campaign = await visual_engine.generate_product_campaign(product_title, product_desc)
+    return {"status": "success", "data": campaign}
 
 @app.post("/webhook/shopify")
 async def handle_shopify_webhook(request: Request, x_shopify_hmac_sha256: str = Header(None)):
