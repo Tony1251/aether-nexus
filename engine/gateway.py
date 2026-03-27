@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException, Header
 from engine.controller import AetherController
 from social_engine.visual_engine import VisualEngine
+from social_engine.video_engine import VideoEngine
 import os
 import hmac
 import hashlib
@@ -13,6 +14,7 @@ app = FastAPI(title="Aether-Nexus-Commercial-Gateway")
 script_path = "/Users/yuhengluo/.openclaw/workspace/projects/Aether-Omni/engine/pipeline.py"
 controller = AetherController(script_path)
 visual_engine = VisualEngine()
+video_engine = VideoEngine()
 
 # 获取 Webhook 密钥
 SHOPIFY_SECRET = os.environ.get("SHOPIFY_WEBHOOK_SECRET")
@@ -39,6 +41,11 @@ async def health():
 async def generate_campaign(product_title: str, product_desc: str):
     campaign = await visual_engine.generate_product_campaign(product_title, product_desc)
     return {"status": "success", "data": campaign}
+
+@app.post("/api/social/generate-video")
+async def generate_video(script_text: str, output_filename: str):
+    video_url = await video_engine.generate_short_video(script_text, output_filename)
+    return {"status": "success", "video_url": video_url}
 
 @app.post("/webhook/shopify")
 async def handle_shopify_webhook(request: Request, x_shopify_hmac_sha256: str = Header(None)):
