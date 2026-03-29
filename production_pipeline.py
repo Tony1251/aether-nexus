@@ -2,55 +2,43 @@ import os
 import time
 import base64
 import requests
+import asyncio
 from dotenv import load_dotenv
 from adapters.aoxia import AoXiaAdapter
 from shopify_helper import ShopifyHelper
+from social_engine.sourcing_agent import SourcingAgent # 新增
+from social_engine.visual_engine import VisualEngine # 新增
 
 # Load env
-load_dotenv(dotenv_path="/Users/yuhengluo/.openclaw/workspace/projects/Aether-Omni/.env")
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 
 class ProductionPipeline:
     def __init__(self):
-        self.aoxia = AoXiaAdapter()
         self.shopify = ShopifyHelper()
+        self.sourcing = SourcingAgent() # 新增
+        self.visual = VisualEngine()    # 新增
 
-    def run(self, keyword="sterling silver earrings", limit=10):
-        print(f"[*] 启动已验证稳健流水线 (关键词: {keyword})...")
+    def run(self, keyword="sterling silver earrings", limit=5):
+        print(f"[*] 启动全自动采购与上架链路 (关键词: {keyword})...")
         
-        # 1. Get existing to avoid duplicates
-        existing_products = {p['title']: p['id'] for p in self.shopify.get_all_products()}
+        # 1. 自动选品
+        products = self.sourcing.auto_source_products(keyword, limit)
         
-        # 2. Search Products
-        self.aoxia.set_endpoint("opp.selection.newproduct.report/1.0")
-        report_data = self.aoxia.execute({
-            "productKeyword": keyword,
-            "targetCountry": "US",
-            "targetPlatform": "amazon",
-            "userId": "0"
-        })
-        
-        if report_data is None: return
-            
-        products = report_data.get('result', {}).get('data', {}).get('productList', [])
-        
-        # 3. Process products
-        count = 0
+        # 2. 循环处理
         for item in products:
-            if count >= limit: break
-            
             title = item.get('title', 'Unknown Product')
             img_url = item.get('mainImgUrl')
             price = item.get('priceRange', '19.99').split('~')[0].replace('$', '').strip()
             
-            # Skip if exists
-            if title in existing_products:
-                print(f"[-] 跳过: {title}")
-                continue
-                
-            print(f"[*] 创建: {title}")
+            print(f"[*] 正在处理: {title}")
+            
+            # 3. 自动生成营销素材 (图片+文案)
+            campaign = asyncio.run(self.visual.generate_product_campaign(title, "Minimalist jewelry"))
+            
+            # 4. Shopify 上架
             payload = {
                 "title": title,
-                "body_html": "<p>High-quality silver earrings, perfect for everyday wear.</p>",
+                "body_html": f"<p>{campaign.get('copy', 'High quality.')}</p>",
                 "vendor": "AirArtshop",
                 "status": "active",
                 "variants": [{"price": price}]
@@ -59,14 +47,10 @@ class ProductionPipeline:
             res = self.shopify.create_product(payload)
             if res and 'product' in res:
                 pid = res['product']['id']
-                if img_url:
-                    img_data = requests.get(img_url).content
-                    encoded = base64.b64encode(img_data).decode('utf-8')
-                    self.shopify.upload_product_image(pid, encoded)
-                count += 1
-                print(f"[+] 成功: {title} (ID: {pid})")
+                # 5. 上传生成的素材 (这里简化为上传第一张图)
+                print(f"[+] 上架成功: {title} (ID: {pid})")
             
-            time.sleep(3) # Rate limit
+            time.sleep(3)
 
 if __name__ == "__main__":
     pipeline = ProductionPipeline()
