@@ -1,11 +1,11 @@
-from langchain.prompts import PromptTemplate
-from llm_trading_adapter import LLMTradingAdapter # 复用已有的 LLM 适配器
+from langchain_core.prompts import PromptTemplate
+from trading_engine.llm_trading_adapter import LLMTradingAdapter
 
 class ContentGenerator:
     def __init__(self):
         self.llm = LLMTradingAdapter(model_name='deepseek-reasoner')
         self.brand_context = """
-        你现在是 AirArtshop 的品牌内容官。
+        你现在是 Aether-Engine 的品牌内容官。
         品牌调性：极简、高雅、轻奢、以匠心工艺为核心。
         目标受众：追求生活品质的现代都市女性。
         禁止词汇：低俗促销、过度营销感、粗暴降价。
