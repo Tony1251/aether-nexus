@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException, Header
+from fastapi.responses import HTMLResponse
 from engine.controller import AetherController
 from social_engine.visual_engine import VisualEngine
 from social_engine.video_engine import VideoEngine
@@ -53,6 +54,48 @@ def verify_airwallex_hmac(data: bytes, timestamp: str, signature: str) -> bool:
     payload = timestamp + data.decode('utf-8')
     computed_hmac = hmac.new(AIRWALLEX_SECRET.encode('utf-8'), payload.encode('utf-8'), hashlib.sha256).hexdigest()
     return hmac.compare_digest(computed_hmac, signature)
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard():
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <title>Aether-Nexus | SaaS AI Gateway</title>
+    </head>
+    <body class="bg-gray-900 text-gray-100 min-h-screen">
+        <div class="grid grid-cols-3 gap-4 p-6 h-screen">
+            <!-- Instruction Panel -->
+            <div class="bg-gray-800 p-4 rounded-lg shadow">
+                <h2 class="text-xl font-bold mb-4">Intent Engine (Input)</h2>
+                <textarea class="w-full h-32 bg-gray-700 text-white p-2 rounded" placeholder="Input AI Agent instructions..."></textarea>
+                <button class="mt-2 bg-blue-600 hover:bg-blue-700 w-full py-2 rounded">Execute Intent</button>
+            </div>
+            <!-- Pipeline View -->
+            <div class="bg-gray-800 p-4 rounded-lg shadow">
+                <h2 class="text-xl font-bold mb-4">Pipeline View (Status)</h2>
+                <div class="space-y-2 text-sm text-gray-400">
+                    <p>Status: Running Pipeline #889</p>
+                    <div class="w-full bg-gray-700 rounded-full h-2">
+                        <div class="bg-blue-500 h-2 rounded-full w-3/4"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- Physical Bridge Monitor -->
+            <div class="bg-gray-800 p-4 rounded-lg shadow">
+                <h2 class="text-xl font-bold mb-4">Physical Bridge (Monitor)</h2>
+                <div class="space-y-2">
+                    <p class="text-green-500">Flipper Zero: Connected</p>
+                    <p class="text-green-500">XLeRobot: Active</p>
+                    <p class="text-yellow-500">RPi Node: Latency 23ms</p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
 
 @app.get("/health")
 async def health():
