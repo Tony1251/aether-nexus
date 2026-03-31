@@ -84,3 +84,4 @@ fastapi
 uvicorn
 langchain
 aiohttp
+deep-translator
